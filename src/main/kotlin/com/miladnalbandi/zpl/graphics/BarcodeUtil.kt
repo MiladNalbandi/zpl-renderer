@@ -1,0 +1,153 @@
+package com.miladnalbandi.zpl.graphics
+
+import com.google.zxing.BarcodeFormat
+import com.google.zxing.EncodeHintType
+import com.google.zxing.MultiFormatWriter
+import com.google.zxing.common.BitMatrix
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
+import java.awt.image.BufferedImage
+import java.util.*
+
+/**
+ * Utility class for generating various barcode types.
+ * Uses ZXing library for barcode generation.
+ */
+object BarcodeUtil {
+
+    /**
+     * Generates a Code 128 barcode
+     *
+     * @param data The data to encode
+     * @param w The width of the barcode
+     * @param h The height of the barcode
+     * @return The generated barcode image
+     */
+    fun code128(data: String, w: Int, h: Int): BufferedImage =
+        encode(BarcodeFormat.CODE_128, data, w, h)
+
+    /**
+     * Generates a QR code
+     *
+     * @param data The data to encode
+     * @param size The size of the QR code (width and height)
+     * @return The generated QR code image
+     */
+    fun qr(data: String, size: Int): BufferedImage {
+        val hints = EnumMap<EncodeHintType, Any>(EncodeHintType::class.java).apply {
+            this[EncodeHintType.MARGIN] = 0
+            this[EncodeHintType.ERROR_CORRECTION] = ErrorCorrectionLevel.M
+            this[EncodeHintType.QR_VERSION] = 4
+        }
+        return encode(BarcodeFormat.QR_CODE, data, size, size, hints)
+    }
+
+    /**
+     * Generates an EAN-8 barcode
+     *
+     * @param data The data to encode (must be 7-8 digits)
+     * @param w The width of the barcode
+     * @param h The height of the barcode
+     * @return The generated barcode image
+     */
+    fun ean8(data: String, w: Int, h: Int): BufferedImage {
+        // Ensure data is valid for EAN-8
+        val cleanData = data.filter { it.isDigit() }.take(8)
+        return try {
+            encode(BarcodeFormat.EAN_8, cleanData, w, h)
+        } catch (e: Exception) {
+            // Fallback to CODE_128 if EAN_8 fails
+            encode(BarcodeFormat.CODE_128, cleanData, w, h)
+        }
+    }
+
+    /**
+     * Generates an EAN-13 barcode
+     *
+     * @param data The data to encode (must be 12-13 digits)
+     * @param w The width of the barcode
+     * @param h The height of the barcode
+     * @return The generated barcode image
+     */
+    fun ean13(data: String, w: Int, h: Int): BufferedImage {
+        // Ensure data is valid for EAN-13
+        val cleanData = data.filter { it.isDigit() }.take(13)
+        return try {
+            encode(BarcodeFormat.EAN_13, cleanData, w, h)
+        } catch (e: Exception) {
+            // Fallback to CODE_128 if EAN_13 fails
+            encode(BarcodeFormat.CODE_128, cleanData, w, h)
+        }
+    }
+
+    /**
+     * Generates a UPC-A barcode
+     *
+     * @param data The data to encode (must be 11-12 digits)
+     * @param w The width of the barcode
+     * @param h The height of the barcode
+     * @return The generated barcode image
+     */
+    fun upcA(data: String, w: Int, h: Int): BufferedImage {
+        // Ensure data is valid for UPC-A
+        val cleanData = data.filter { it.isDigit() }.take(12)
+        return try {
+            encode(BarcodeFormat.UPC_A, cleanData, w, h)
+        } catch (e: Exception) {
+            // Fallback to CODE_128 if UPC_A fails
+            encode(BarcodeFormat.CODE_128, cleanData, w, h)
+        }
+    }
+
+    /**
+     * Generates a Data Matrix barcode
+     *
+     * @param data The data to encode
+     * @param size The size of the Data Matrix (width and height)
+     * @return The generated Data Matrix image
+     */
+    fun dataMatrix(data: String, size: Int): BufferedImage {
+        return try {
+            encode(BarcodeFormat.DATA_MATRIX, data, size, size)
+        } catch (e: Exception) {
+            // Fallback to QR code if Data Matrix fails
+            qr(data, size)
+        }
+    }
+
+    /**
+     * Encodes data into a barcode image
+     *
+     * @param fmt The barcode format
+     * @param data The data to encode
+     * @param w The width of the barcode
+     * @param h The height of the barcode
+     * @param customHints Optional custom encoding hints
+     * @return The generated barcode image
+     */
+    private fun encode(
+        fmt: BarcodeFormat,
+        data: String,
+        w: Int,
+        h: Int,
+        customHints: EnumMap<EncodeHintType, Any>? = null
+    ): BufferedImage {
+        val hints = customHints ?: EnumMap<EncodeHintType, Any>(EncodeHintType::class.java).apply {
+            this[EncodeHintType.MARGIN] = 0
+        }
+
+        val m: BitMatrix = MultiFormatWriter().encode(data, fmt, w, h, hints)
+
+        // Optimized image creation
+        val img = BufferedImage(w, h, BufferedImage.TYPE_BYTE_BINARY)
+        val raster = img.raster
+
+        for (y in 0 until h) {
+            for (x in 0 until w) {
+                // Set pixel directly in raster (more efficient than setRGB)
+                raster.setSample(x, y, 0, if (m[x, y]) 1 else 0)
+            }
+        }
+
+        return img
+    }
+}
