@@ -212,5 +212,6 @@ class TextHandler : CommandHandler {
         return out
     }
 
-    private fun scale(h203: Int, dpi: Int) = (h203 * (dpi / 203.0)).toInt().coerceAtLeast(1)
+    // ZPL dot values are already at the printer's DPI — map 1:1 to pixels, no cross-DPI scaling.
+    private fun scale(h: Int, @Suppress("UNUSED_PARAMETER") dpi: Int) = h.coerceAtLeast(1)
 }

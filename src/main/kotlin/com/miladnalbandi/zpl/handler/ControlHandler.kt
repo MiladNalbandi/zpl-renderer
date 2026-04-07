@@ -91,5 +91,5 @@ class ControlHandler : CommandHandler {
         return true
     }
 
-    private fun scale(h203: Int, dpi: Int) = (h203 * (dpi / 203.0)).toInt().coerceAtLeast(1)
+    private fun scale(h: Int, @Suppress("UNUSED_PARAMETER") dpi: Int) = h.coerceAtLeast(1)
 }
