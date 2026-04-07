@@ -143,8 +143,8 @@ object BarcodeUtil {
 
         for (y in 0 until h) {
             for (x in 0 until w) {
-                // Set pixel directly in raster (more efficient than setRGB)
-                raster.setSample(x, y, 0, if (m[x, y]) 1 else 0)
+                // dark module (bar) → index 0 = black; light module (space) → index 1 = white
+                raster.setSample(x, y, 0, if (m[x, y]) 0 else 1)
             }
         }
 

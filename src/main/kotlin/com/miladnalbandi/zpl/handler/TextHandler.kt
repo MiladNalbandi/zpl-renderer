@@ -27,6 +27,7 @@ class TextHandler : CommandHandler {
 
     private var blockWidth = 0
     private var pending: String? = null
+    private var fontWidthRatio = 1.0   // from ^A w/h; <1.0 = condensed font
 
     override fun handle(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext): Boolean {
         when {
@@ -48,8 +49,8 @@ class TextHandler : CommandHandler {
             // ── Font selection  ^Afo,h,w ─────────────────────────────────────────
             // f  = font name (single char: '0'–'Z'); we map everything to SansSerif
             // o  = orientation (N/R/I/B); may be fused with f, e.g. "0N"
-            // h  = character height in dots (falls back to ctx.defaultFontHeight)
-            // w  = character width in dots (ignored — let the JVM scale proportionally)
+            // h  = character height in dots
+            // w  = character width in dots; if w < h apply horizontal condensation
             cmd.startsWith("A") -> {
                 val rest = cmd.drop(1)           // e.g. "0N,36,20" or "0,36"
                 val orientChar = rest.getOrNull(1)
@@ -58,7 +59,9 @@ class TextHandler : CommandHandler {
                 val paramStr = rest.drop(if (hasOrient) 2 else 1).trimStart(',')
                 val parts = if (paramStr.isEmpty()) emptyList() else paramStr.split(',')
                 val h = parts.getOrNull(0)?.toIntOrNull() ?: ctx.defaultFontHeight
+                val w = parts.getOrNull(1)?.toIntOrNull() ?: 0
                 ctx.font = Font("SansSerif", Font.PLAIN, scale(h, ctx.dpi))
+                fontWidthRatio = if (w > 0 && h > 0) w.toDouble() / h.toDouble() else 1.0
             }
 
             // ── Field flags ───────────────────────────────────────────────────────
@@ -124,8 +127,14 @@ class TextHandler : CommandHandler {
         if (txt != null) {
             val processed = processText(txt, ctx)
 
+            // Apply horizontal condensation from ^A width parameter
+            val drawFont = if (fontWidthRatio != 1.0 && fontWidthRatio > 0.0) {
+                val at = java.awt.geom.AffineTransform.getScaleInstance(fontWidthRatio, 1.0)
+                ctx.font.deriveFont(at)
+            } else ctx.font
+
             // Font and metrics must be set before computing background rect
-            g.font = ctx.font
+            g.font = drawFont
             val fm = g.fontMetrics
             val lines = if (blockWidth > 0) wrapText(processed, blockWidth, fm) else listOf(processed)
 
@@ -166,6 +175,7 @@ class TextHandler : CommandHandler {
         ctx.fieldReverse = false
         ctx.fieldHex = false
         ctx.pendingFieldNum = null
+        fontWidthRatio = 1.0
         // Per-field rotation: reset to the label-wide default after each field ends
         ctx.rot = ctx.defaultRot
     }
