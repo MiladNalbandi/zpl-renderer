@@ -27,7 +27,13 @@ class TextHandler : CommandHandler {
 
     private var blockWidth = 0
     private var pending: String? = null
-    private var fontWidthRatio = 1.0   // from ^A w/h; <1.0 = condensed font
+    // Zebra's built-in fonts are ~60% as wide as their height.
+    // Apply this ratio when ^A does not supply an explicit width.
+    private var fontWidthRatio = DEFAULT_WIDTH_RATIO
+
+    companion object {
+        private const val DEFAULT_WIDTH_RATIO = 0.65
+    }
 
     override fun handle(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext): Boolean {
         when {
@@ -61,7 +67,7 @@ class TextHandler : CommandHandler {
                 val h = parts.getOrNull(0)?.toIntOrNull() ?: ctx.defaultFontHeight
                 val w = parts.getOrNull(1)?.toIntOrNull() ?: 0
                 ctx.font = Font("SansSerif", Font.PLAIN, scale(h, ctx.dpi))
-                fontWidthRatio = if (w > 0 && h > 0) w.toDouble() / h.toDouble() else 1.0
+                fontWidthRatio = if (w > 0 && h > 0) w.toDouble() / h.toDouble() else DEFAULT_WIDTH_RATIO
             }
 
             // ── Field flags ───────────────────────────────────────────────────────
@@ -175,7 +181,7 @@ class TextHandler : CommandHandler {
         ctx.fieldReverse = false
         ctx.fieldHex = false
         ctx.pendingFieldNum = null
-        fontWidthRatio = 1.0
+        fontWidthRatio = DEFAULT_WIDTH_RATIO
         // Per-field rotation: reset to the label-wide default after each field ends
         ctx.rot = ctx.defaultRot
     }
