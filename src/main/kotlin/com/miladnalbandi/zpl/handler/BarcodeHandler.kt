@@ -91,7 +91,8 @@ class BarcodeHandler : CommandHandler {
         val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
-        val magnification = cmd.drop(2).split(',').getOrNull(1)?.toIntOrNull() ?: 6
+        // ^BQo,m,e — index 0=orientation, 1=model, 2=magnification (cell size in dots)
+        val magnification = cmd.drop(2).split(',').getOrNull(2)?.toIntOrNull() ?: 6
         val size = magnification * ctx.barcodeModule * 4
         val cacheKey = "QR:$data:$size:$rotation"
         val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.qr(data, size) }

@@ -124,11 +124,22 @@ class TextHandler : CommandHandler {
         if (txt != null) {
             val processed = processText(txt, ctx)
 
-            val oldColor = g.color
-            if (ctx.fieldReverse) g.color = Color.WHITE
-
+            // Font and metrics must be set before computing background rect
             g.font = ctx.font
             val fm = g.fontMetrics
+            val lines = if (blockWidth > 0) wrapText(processed, blockWidth, fm) else listOf(processed)
+
+            val oldColor = g.color
+
+            if (ctx.fieldReverse) {
+                // Fill a black background rectangle, then draw white text on top
+                val textW = lines.maxOfOrNull { fm.stringWidth(it) } ?: fm.stringWidth(processed)
+                val textH = fm.height * lines.size
+                g.color = Color.BLACK
+                g.fillRect(ctx.x, ctx.y, textW, textH)
+                g.color = Color.WHITE
+            }
+
             val angle = when (ctx.rot) {
                 'R' -> 90.0
                 'I' -> 180.0
@@ -136,7 +147,6 @@ class TextHandler : CommandHandler {
                 else -> 0.0
             }
 
-            val lines = if (blockWidth > 0) wrapText(processed, blockWidth, fm) else listOf(processed)
             val oldTransform = g.transform
             if (angle != 0.0) {
                 g.rotate(Math.toRadians(angle), ctx.x.toDouble(), ctx.y.toDouble())
