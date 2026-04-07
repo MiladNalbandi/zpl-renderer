@@ -75,6 +75,17 @@ class ControlHandler : CommandHandler {
             cmd.startsWith("JM") || cmd.startsWith("JN") || cmd.startsWith("JP") ||
             cmd.startsWith("JR") || cmd.startsWith("JS") -> { /* calibration — no-op */ }
 
+            // Download Format — ^DFname^FS : begin capturing subsequent commands as a named template
+            cmd.startsWith("DF") -> {
+                ctx.capturingFormat = cmd.drop(2)
+                ctx.captureBuffer.clear()
+                // consume the mandatory ^FS terminator that follows ^DFname
+                if (it.hasNext()) {
+                    val nxt = it.next().trim()
+                    if (nxt != "FS") it.previous()
+                }
+            }
+
             else -> return false
         }
         return true

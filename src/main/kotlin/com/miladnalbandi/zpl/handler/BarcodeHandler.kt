@@ -77,7 +77,7 @@ class BarcodeHandler : CommandHandler {
         // ^BC allows overriding the height set by ^BY
         val effectiveHeight = params.getOrNull(1)?.toIntOrNull()?.takeIf { it > 0 } ?: ctx.barcodeHeight
 
-        val data = fetchFD(it)
+        val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
         val wEst = data.length * 11 * ctx.barcodeModule
@@ -88,7 +88,7 @@ class BarcodeHandler : CommandHandler {
 
     // ─── QR Code  ^BQo,m,e,n,d ───────────────────────────────────────────────
     private fun drawQr(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
-        val data = fetchFD(it)
+        val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
         val magnification = cmd.drop(2).split(',').getOrNull(1)?.toIntOrNull() ?: 6
@@ -100,7 +100,7 @@ class BarcodeHandler : CommandHandler {
 
     // ─── EAN-8  ^B8o,h,f,g ───────────────────────────────────────────────────
     private fun drawEAN8(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
-        val data = fetchFD(it)
+        val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
         val h = ctx.barcodeHeight
@@ -112,7 +112,7 @@ class BarcodeHandler : CommandHandler {
 
     // ─── EAN-13  ^BEo,h,f,g ──────────────────────────────────────────────────
     private fun drawEAN13(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
-        val data = fetchFD(it)
+        val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
         val h = ctx.barcodeHeight
@@ -124,7 +124,7 @@ class BarcodeHandler : CommandHandler {
 
     // ─── UPC-A  ^BUo,h,f,g,e ─────────────────────────────────────────────────
     private fun drawUPCA(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
-        val data = fetchFD(it)
+        val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
         val h = ctx.barcodeHeight
@@ -136,7 +136,7 @@ class BarcodeHandler : CommandHandler {
 
     // ─── Data Matrix  ^BXo,h,q,c ─────────────────────────────────────────────
     private fun drawDataMatrix(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
-        val data = fetchFD(it)
+        val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
         val size = (cmd.drop(2).split(',').getOrNull(1)?.toIntOrNull() ?: 10) * ctx.barcodeModule
@@ -187,16 +187,21 @@ class BarcodeHandler : CommandHandler {
     }
 
     /**
-     * Advance the iterator to find the ^FD (field data) command.
+     * Advance the iterator to find the ^FD (field data) command or resolve a ^FN
+     * variable reference.
      * Commands have already been split by '^', so there are no embedded "^FD" tokens.
      * Stops at the first ^FS encountered.
      */
-    private fun fetchFD(it: ListIterator<String>): String {
+    private fun fetchFD(it: ListIterator<String>, ctx: RenderContext): String {
         var data = ""
         while (it.hasNext()) {
             val nxt = it.next()
             when {
                 nxt.startsWith("FD") -> data = nxt.drop(2)
+                nxt.startsWith("FN") -> {
+                    val num = nxt.drop(2).toIntOrNull()
+                    if (num != null) data = ctx.variables[num] ?: ""
+                }
                 nxt.startsWith("FS") -> break
             }
         }

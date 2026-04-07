@@ -64,6 +64,19 @@ data class RenderContext(
     /** Default barcode height in dots (set by `^BY`, param 3). */
     var barcodeHeight: Int = 100,
 ) {
+    // ── Variable / format state — persists across ^XA resets ─────────────────
+    /** Pre-loaded variable map: field number → value (^FN##^FD…^FS). */
+    val variables: MutableMap<Int, String> = mutableMapOf()
+    /** Named format store: format name → captured command list (^DF/^XF). */
+    val formatStore: MutableMap<String, List<String>> = mutableMapOf()
+    /** Non-null while the engine is in ^DF capture mode. */
+    var capturingFormat: String? = null
+    /** Commands buffered during ^DF format download. */
+    val captureBuffer: MutableList<String> = mutableListOf()
+
+    // ── Per-field variable reference ─────────────────────────────────────────
+    /** Set by ^FN##; consumed by the next ^FD (variable definition) or ^FS (variable draw). */
+    var pendingFieldNum: Int? = null
     /**
      * Applies initial graphics state (font, colors, rendering hints) to [g].
      * Called once at the start of each render.
@@ -95,5 +108,6 @@ data class RenderContext(
         fieldHex        = false
         barcodeModule   = 3
         barcodeHeight   = 100
+        pendingFieldNum = null
     }
 }

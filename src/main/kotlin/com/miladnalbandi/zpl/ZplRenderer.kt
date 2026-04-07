@@ -103,6 +103,21 @@ object ZplRenderer {
             val cmds = splitCommands(zpl)
             if (debug) println("[ZplRenderer] Dispatching ${cmds.size} commands")
 
+            // Pre-scan: collect ^FN##^FD…^FS variable assignments before dispatch.
+            // The second ^XA block defines variables AFTER ^XF, so we pre-load them
+            // to ensure the recalled format can resolve all variable references.
+            val preloadedVars = mutableMapOf<Int, String>()
+            for (i in cmds.indices) {
+                val c = cmds[i].trim()
+                if (c.startsWith("FN")) {
+                    val num = c.drop(2).toIntOrNull()
+                    if (num != null && i + 1 < cmds.size && cmds[i + 1].trim().startsWith("FD")) {
+                        preloadedVars[num] = cmds[i + 1].trim().drop(2)
+                    }
+                }
+            }
+            ctx.variables.putAll(preloadedVars)
+
             engine.dispatch(cmds, g, ctx)
 
             cacheKey?.let { imageCache[it] = img }

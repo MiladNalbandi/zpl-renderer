@@ -70,8 +70,10 @@ class TextHandler : CommandHandler {
             // Field Hex — enables _xx hex-escape decoding in the next ^FD
             cmd.startsWith("FH") -> ctx.fieldHex = true
 
-            // Field Name/Number placeholder — ignore
-            cmd.startsWith("FN") -> { /* no-op */ }
+            // Field Name/Number — store pending field number for variable reference
+            cmd.startsWith("FN") -> {
+                ctx.pendingFieldNum = cmd.drop(2).toIntOrNull()
+            }
 
             // ── Block text  ^FBw,n,g,j,i ──────────────────────────────────────────
             // w = width in dots for word-wrap (only param we use)
@@ -80,9 +82,35 @@ class TextHandler : CommandHandler {
             }
 
             // ── Text content ─────────────────────────────────────────────────────
-            cmd.startsWith("FD") -> pending = cmd.drop(2)
-            cmd.startsWith("FV") -> pending = cmd.drop(2)   // Field Variable — treated as FD
-            cmd.startsWith("FS") -> { flush(g, ctx); blockWidth = 0 }
+            cmd.startsWith("FD") -> {
+                val data = cmd.drop(2)
+                if (ctx.pendingFieldNum != null) {
+                    // Variable definition: ^FN##^FDvalue^FS → store only, don't draw
+                    ctx.variables[ctx.pendingFieldNum!!] = data
+                    ctx.pendingFieldNum = null
+                    // pending stays null → ^FS will flush nothing
+                } else {
+                    pending = data
+                }
+            }
+            cmd.startsWith("FV") -> {
+                val data = cmd.drop(2)
+                if (ctx.pendingFieldNum != null) {
+                    ctx.variables[ctx.pendingFieldNum!!] = data
+                    ctx.pendingFieldNum = null
+                } else {
+                    pending = data
+                }
+            }
+            cmd.startsWith("FS") -> {
+                if (ctx.pendingFieldNum != null) {
+                    // Variable draw: ^FN##^FS → draw variable value at current position
+                    pending = ctx.variables[ctx.pendingFieldNum] ?: ""
+                    ctx.pendingFieldNum = null
+                }
+                flush(g, ctx)
+                blockWidth = 0
+            }
 
             else -> return false
         }
@@ -127,6 +155,7 @@ class TextHandler : CommandHandler {
         pending = null
         ctx.fieldReverse = false
         ctx.fieldHex = false
+        ctx.pendingFieldNum = null
         // Per-field rotation: reset to the label-wide default after each field ends
         ctx.rot = ctx.defaultRot
     }

@@ -58,6 +58,28 @@ class ZplEngine {
             if (cmd.isBlank()) continue
             total++
 
+            // ── Format capture mode (^DF is active) ──────────────────────────────────
+            if (ctx.capturingFormat != null) {
+                if (cmd == "XZ") {
+                    ctx.formatStore[ctx.capturingFormat!!] = ctx.captureBuffer.toList()
+                    ctx.capturingFormat = null
+                    ctx.captureBuffer.clear()
+                    // fall through — let XZ be handled normally (no-op)
+                } else {
+                    ctx.captureBuffer.add(cmd)
+                    handled++
+                    continue
+                }
+            }
+
+            // ── Recall stored format (^XF) ────────────────────────────────────────────
+            if (cmd.startsWith("XF")) {
+                val formatName = cmd.drop(2)
+                ctx.formatStore[formatName]?.let { dispatch(it, g, ctx) }
+                handled++
+                continue
+            }
+
             val prefix       = cmd.take(2)
             val cachedHandler = prefixCache[prefix]
             var ok = false
