@@ -3,6 +3,8 @@ package com.miladnalbandi.zpl.handler
 import com.miladnalbandi.zpl.graphics.BarcodeUtil
 import com.miladnalbandi.zpl.CommandHandler
 import com.miladnalbandi.zpl.RenderContext
+import java.awt.Color
+import java.awt.Font
 import java.awt.Graphics2D
 import java.awt.image.BufferedImage
 import java.util.*
@@ -76,14 +78,37 @@ class BarcodeHandler : CommandHandler {
         if (orient in "NRIB") rotation = orient
         // ^BC allows overriding the height set by ^BY
         val effectiveHeight = params.getOrNull(1)?.toIntOrNull()?.takeIf { it > 0 } ?: ctx.barcodeHeight
+        // f = print interpretation line (Y=default, N=suppress)
+        val showHRI = (params.getOrNull(2)?.trim()?.firstOrNull() ?: 'Y') != 'N'
 
         val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
+        // Reserve space at the bottom for human-readable text when enabled
+        val hriTextSize = if (showHRI) ((effectiveHeight * 0.15).toInt().coerceIn(10, 28)) else 0
+        val barHeight = (effectiveHeight - hriTextSize).coerceAtLeast(10)
+
         val wEst = data.length * 11 * ctx.barcodeModule
-        val cacheKey = "CODE128:$data:$wEst:$effectiveHeight:$rotation"
-        val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.code128(data, wEst, effectiveHeight) }
+        val cacheKey = "CODE128:$data:$wEst:$barHeight:$rotation"
+        val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.code128(data, wEst, barHeight) }
+
+        // Save draw position before drawBarcodeWithRotation resets rotation
+        val drawX = ctx.x
+        val drawY = ctx.y
         drawBarcodeWithRotation(barcode, g, ctx)
+
+        // Draw human-readable interpretation line below barcode
+        if (showHRI) {
+            val oldFont = g.font
+            val oldColor = g.color
+            g.font = Font("Monospaced", Font.PLAIN, hriTextSize)
+            g.color = Color.BLACK
+            val fm = g.fontMetrics
+            val textX = drawX + ((wEst - fm.stringWidth(data)) / 2).coerceAtLeast(0)
+            g.drawString(data, textX, drawY + barHeight + fm.ascent)
+            g.font = oldFont
+            g.color = oldColor
+        }
     }
 
     // ─── QR Code  ^BQo,m,e,n,d ───────────────────────────────────────────────
