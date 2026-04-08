@@ -116,9 +116,10 @@ class BarcodeHandler : CommandHandler {
         val data = fetchFD(it, ctx)
         if (data.isBlank()) return
 
-        // ^BQo,m,e — index 0=orientation, 1=model, 2=magnification (cell size in dots)
+        // ^BQo,m,e — index 0=orientation, 1=model, 2=magnification (dots per QR module cell)
         val magnification = cmd.drop(2).split(',').getOrNull(2)?.toIntOrNull() ?: 6
-        val size = magnification * ctx.barcodeModule * 4
+        // QR version 4 = 33×33 modules; total size = magnification × module_count
+        val size = magnification * 33
         val cacheKey = "QR:$data:$size:$rotation"
         val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.qr(data, size) }
         drawBarcodeWithRotation(barcode, g, ctx)

@@ -26,6 +26,7 @@ import java.util.*
 class TextHandler : CommandHandler {
 
     private var blockWidth = 0
+    private var blockJustification = 'L'  // L=left, C=center, R=right from ^FB j param
     private var pending: String? = null
     // Zebra's built-in fonts are ~60% as wide as their height.
     // Apply this ratio when ^A does not supply an explicit width.
@@ -85,9 +86,12 @@ class TextHandler : CommandHandler {
             }
 
             // ── Block text  ^FBw,n,g,j,i ──────────────────────────────────────────
-            // w = width in dots for word-wrap (only param we use)
+            // w = block width in dots (wrap boundary)
+            // j = justification: L=left (default), R=right, C=center, J=justified
             cmd.startsWith("FB") -> {
-                blockWidth = cmd.drop(2).split(',')[0].toIntOrNull() ?: 0
+                val p = cmd.drop(2).split(',')
+                blockWidth = p[0].toIntOrNull() ?: 0
+                blockJustification = p.getOrNull(3)?.trim()?.firstOrNull()?.uppercaseChar() ?: 'L'
             }
 
             // ── Text content ─────────────────────────────────────────────────────
@@ -169,7 +173,13 @@ class TextHandler : CommandHandler {
 
             var yCursor = ctx.y + fm.ascent
             for (line in lines) {
-                g.drawString(line, ctx.x, yCursor)
+                val lineW = fm.stringWidth(line)
+                val lineX = when (blockJustification) {
+                    'C' -> ctx.x + ((blockWidth * fontWidthRatio - lineW) / 2).toInt().coerceAtLeast(0)
+                    'R' -> ctx.x + (blockWidth * fontWidthRatio).toInt() - lineW
+                    else -> ctx.x
+                }
+                g.drawString(line, lineX, yCursor)
                 yCursor += fm.height
             }
 
@@ -182,6 +192,7 @@ class TextHandler : CommandHandler {
         ctx.fieldHex = false
         ctx.pendingFieldNum = null
         fontWidthRatio = DEFAULT_WIDTH_RATIO
+        blockJustification = 'L'
         // Per-field rotation: reset to the label-wide default after each field ends
         ctx.rot = ctx.defaultRot
     }
