@@ -83,6 +83,8 @@ data class RenderContext(
     var capturingFormat: String? = null
     /** Commands buffered during ^DF format download. */
     val captureBuffer: MutableList<String> = mutableListOf()
+    /** Named graphic store: graphic name → decoded image (populated by ~DG, consumed by ^XG). */
+    val graphicStore: MutableMap<String, java.awt.image.BufferedImage> = mutableMapOf()
 
     // ── Per-field variable reference ─────────────────────────────────────────
     /** Set by ^FN##; consumed by the next ^FD (variable definition) or ^FS (variable draw). */

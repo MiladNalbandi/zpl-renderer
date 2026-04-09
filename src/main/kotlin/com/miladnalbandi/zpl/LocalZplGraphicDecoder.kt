@@ -68,7 +68,30 @@ object LocalZplGraphicDecoder {
         return decodeGraphicField(totalBytes, bytesPerRow, payload)
     }
 
-    private fun decodeGraphicField(totalBytes: Int, bytesPerRow: Int, payload: String): BufferedImage? {
+    /**
+     * Decodes a `~DG` (Download Graphic) payload.
+     *
+     * [rest] is the part of the command after the `DG` prefix, e.g.:
+     *   `R:LOGO.GRF,1312,32,<data>`
+     *
+     * Returns a (name, image) pair, or null on any parse/decode failure.
+     * The name can be used as a key in [RenderContext.graphicStore].
+     */
+    fun decodeDownloadGraphic(rest: String): Pair<String, BufferedImage>? {
+        val firstComma = rest.indexOf(',')
+        if (firstComma < 0) return null
+        val name = rest.substring(0, firstComma).trim()
+        val tail = rest.substring(firstComma + 1)
+        val parts = tail.split(',', limit = 3)
+        if (parts.size < 3) return null
+        val totalBytes  = parts[0].toIntOrNull() ?: return null
+        val bytesPerRow = parts[1].toIntOrNull()?.takeIf { it > 0 } ?: return null
+        val data        = parts[2].trim()
+        val img = decodeGraphicField(totalBytes, bytesPerRow, data) ?: return null
+        return name to img
+    }
+
+    internal fun decodeGraphicField(totalBytes: Int, bytesPerRow: Int, payload: String): BufferedImage? {
         val raster: ByteArray = when {
             payload.startsWith(":Z64:") -> decodeZ64(payload)
             payload.startsWith(":B64:") -> decodeB64(payload)

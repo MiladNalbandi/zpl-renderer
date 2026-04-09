@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "com.miladnalbandi"
-version = "1.1.8"
+version = "1.1.9"
 
 repositories {
     mavenCentral()
