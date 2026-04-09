@@ -43,7 +43,7 @@ class TextHandler : CommandHandler {
                 val p = cmd.drop(2).split(',')
                 ctx.x = (p[0].toIntOrNull() ?: ctx.x) + ctx.labelHomeX
                 ctx.y = (p.getOrNull(1)?.toIntOrNull() ?: ctx.y) + ctx.labelHomeY
-                // 3rd param = justification (0=L, 1=R, 2=auto) — not yet applied
+                ctx.fieldJustification = p.getOrNull(2)?.toIntOrNull() ?: 0
             }
             cmd.startsWith("FT") -> {
                 val p = cmd.drop(2).split(',')
@@ -68,7 +68,7 @@ class TextHandler : CommandHandler {
                 val h = parts.getOrNull(0)?.toIntOrNull() ?: ctx.defaultFontHeight
                 val w = parts.getOrNull(1)?.toIntOrNull() ?: 0
                 ctx.font = Font("SansSerif", Font.PLAIN, scale(h, ctx.dpi))
-                fontWidthRatio = if (w > 0 && h > 0) w.toDouble() / h.toDouble() else DEFAULT_WIDTH_RATIO
+                fontWidthRatio = if (w > 0 && h > 0) w.toDouble() / h.toDouble() else ctx.defaultFontWidthRatio
             }
 
             // ── Field flags ───────────────────────────────────────────────────────
@@ -190,8 +190,9 @@ class TextHandler : CommandHandler {
         pending = null
         ctx.fieldReverse = false
         ctx.fieldHex = false
+        ctx.fieldJustification = 0
         ctx.pendingFieldNum = null
-        fontWidthRatio = DEFAULT_WIDTH_RATIO
+        fontWidthRatio = ctx.defaultFontWidthRatio
         blockJustification = 'L'
         // Per-field rotation: reset to the label-wide default after each field ends
         ctx.rot = ctx.defaultRot

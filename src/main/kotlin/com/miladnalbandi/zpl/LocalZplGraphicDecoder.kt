@@ -159,6 +159,14 @@ object LocalZplGraphicDecoder {
                 // g-z: multiples of 20  g=20, h=40, …, z=400
                 ch in 'g'..'z' -> multiplier += (ch - 'g' + 1) * 20
 
+                // '!': fill remainder of current row with black (ZPL: bit 1 = black = 0xF nibble)
+                ch == '!' -> {
+                    while (nibPos < nibsPerRow) {
+                        writeNibble(0xF, nibPos++)
+                    }
+                    multiplier = 0
+                }
+
                 // ',': end current row (zero-pad remainder)
                 ch == ',' -> flushRow()
 

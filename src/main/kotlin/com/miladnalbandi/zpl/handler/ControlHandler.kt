@@ -43,11 +43,13 @@ class ControlHandler : CommandHandler {
             // Change default font  ^CFf,h[,w]
             // f = font name (ignored, mapped to SansSerif)
             // h = character height in dots
-            // w = character width in dots (ignored)
+            // w = character width in dots
             cmd.startsWith("CF") -> {
                 val p = cmd.drop(2).split(',')
                 val h = p.getOrNull(1)?.toIntOrNull() ?: ctx.defaultFontHeight
+                val w = p.getOrNull(2)?.toIntOrNull() ?: 0
                 ctx.defaultFontHeight = h
+                if (w > 0 && h > 0) ctx.defaultFontWidthRatio = w.toDouble() / h.toDouble()
                 ctx.font = Font("SansSerif", Font.PLAIN, scale(h, ctx.dpi))
             }
 

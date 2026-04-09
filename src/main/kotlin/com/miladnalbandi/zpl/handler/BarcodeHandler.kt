@@ -92,8 +92,12 @@ class BarcodeHandler : CommandHandler {
         val cacheKey = "CODE128:$data:$wEst:$barHeight:$rotation"
         val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.code128(data, wEst, barHeight) }
 
-        // Save draw position before drawBarcodeWithRotation resets rotation
-        val drawX = ctx.x
+        // Compute adjusted x (mirrors drawBarcodeWithRotation justification logic)
+        val barcodeDrawX = when (ctx.fieldJustification) {
+            1 -> ctx.x - barcode.width
+            2 -> ctx.x - barcode.width / 2
+            else -> ctx.x
+        }
         val drawY = ctx.y
         drawBarcodeWithRotation(barcode, g, ctx)
 
@@ -104,7 +108,7 @@ class BarcodeHandler : CommandHandler {
             g.font = Font("Monospaced", Font.PLAIN, hriTextSize)
             g.color = Color.BLACK
             val fm = g.fontMetrics
-            val textX = drawX + ((wEst - fm.stringWidth(data)) / 2).coerceAtLeast(0)
+            val textX = barcodeDrawX + ((wEst - fm.stringWidth(data)) / 2).coerceAtLeast(0)
             g.drawString(data, textX, drawY + barHeight + fm.ascent)
             g.font = oldFont
             g.color = oldColor
@@ -174,8 +178,15 @@ class BarcodeHandler : CommandHandler {
 
     // ─── Shared helpers ───────────────────────────────────────────────────────
 
-    /** Draw the barcode image at the current position, applying per-barcode rotation. */
+    /** Draw the barcode image at the current position, applying per-barcode rotation and field justification. */
     private fun drawBarcodeWithRotation(barcode: BufferedImage, g: Graphics2D, ctx: RenderContext) {
+        // ^FO 3rd param: 0=left (x is left edge), 1=right (x is right edge), 2=center
+        val drawX = when (ctx.fieldJustification) {
+            1 -> ctx.x - barcode.width
+            2 -> ctx.x - barcode.width / 2
+            else -> ctx.x
+        }
+
         // Per-barcode rotation takes precedence over the field default
         val rot = if (rotation != 'N') rotation else ctx.rot
         val angle = when (rot) {
@@ -187,15 +198,16 @@ class BarcodeHandler : CommandHandler {
 
         if (angle != 0.0) {
             val oldTransform = g.transform
-            g.rotate(angle, ctx.x.toDouble(), ctx.y.toDouble())
-            g.drawImage(barcode, ctx.x, ctx.y, null)
+            g.rotate(angle, drawX.toDouble(), ctx.y.toDouble())
+            g.drawImage(barcode, drawX, ctx.y, null)
             g.transform = oldTransform
         } else {
-            g.drawImage(barcode, ctx.x, ctx.y, null)
+            g.drawImage(barcode, drawX, ctx.y, null)
         }
 
         // Reset per-barcode rotation so it doesn't bleed into the next barcode
         rotation = 'N'
+        ctx.fieldJustification = 0
         // Consume any pending fieldReverse (barcode inversion is not yet implemented,
         // but the flag must be cleared to avoid affecting subsequent fields)
         ctx.fieldReverse = false

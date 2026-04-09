@@ -63,6 +63,16 @@ data class RenderContext(
     var barcodeModule: Int = 3,
     /** Default barcode height in dots (set by `^BY`, param 3). */
     var barcodeHeight: Int = 100,
+    /**
+     * Field origin justification from `^FO` 3rd param: 0=left (default), 1=right, 2=center.
+     * Cleared after each field is drawn.
+     */
+    var fieldJustification: Int = 0,
+    /**
+     * Default font width ratio set by `^CF` 3rd param.
+     * Zebra built-in fonts are narrower than SansSerif; 0.65 is a good empirical match.
+     */
+    var defaultFontWidthRatio: Double = 0.65,
 ) {
     // ── Variable / format state — persists across ^XA resets ─────────────────
     /** Pre-loaded variable map: field number → value (^FN##^FD…^FS). */
@@ -106,8 +116,10 @@ data class RenderContext(
         defaultRot      = 'N'
         fieldReverse    = false
         fieldHex        = false
-        barcodeModule   = 3
-        barcodeHeight   = 100
-        pendingFieldNum = null
+        barcodeModule        = 3
+        barcodeHeight        = 100
+        fieldJustification   = 0
+        defaultFontWidthRatio = 0.65
+        pendingFieldNum      = null
     }
 }
