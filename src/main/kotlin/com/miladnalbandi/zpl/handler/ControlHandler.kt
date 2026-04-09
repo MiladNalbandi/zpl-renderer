@@ -2,6 +2,7 @@ package com.miladnalbandi.zpl.handler
 
 import com.miladnalbandi.zpl.CommandHandler
 import com.miladnalbandi.zpl.RenderContext
+import java.awt.Color
 import java.awt.Font
 import java.awt.Graphics2D
 import java.util.*
@@ -16,8 +17,9 @@ import java.util.*
  *   LH  — label home offset
  *   PW  — label width (printer info, ignored)
  *   LL  — label length (printer info, ignored)
- *   CF  — change default font (stores height, updates ctx.font)
+ *   CF  — change default font (stores height and optional width, updates ctx.font)
  *   FW  — field write orientation (default rotation for all fields)
+ *   LR  — label reverse (Y/N — invert all field colors)
  *   MM, MN, MT, MD, MF — media/print settings (no-op)
  *   PR  — print rate (no-op)
  *   PQ  — print quantity (no-op)
@@ -60,6 +62,12 @@ class ControlHandler : CommandHandler {
                     ctx.defaultRot = orient
                     ctx.rot = orient
                 }
+            }
+
+            // Label Reverse  ^LRY/N — invert all subsequent field colors
+            cmd.startsWith("LR") -> {
+                ctx.invert = cmd.drop(2).firstOrNull() == 'Y'
+                g.color = if (ctx.invert) Color.WHITE else Color.BLACK
             }
 
             // Printer/media settings — informational only, no visual effect

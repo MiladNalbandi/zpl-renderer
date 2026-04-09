@@ -3,6 +3,7 @@ package com.miladnalbandi.zpl.handler
 import com.miladnalbandi.zpl.graphics.BarcodeUtil
 import com.miladnalbandi.zpl.CommandHandler
 import com.miladnalbandi.zpl.RenderContext
+import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.awt.Color
 import java.awt.Font
 import java.awt.Graphics2D
@@ -21,6 +22,8 @@ import java.util.concurrent.ConcurrentHashMap
  *   BE  — EAN-13
  *   BU  — UPC-A
  *   BX  — Data Matrix
+ *   BA / B2 — Code 39 / Interleaved 2 of 5
+ *   B7  — PDF417
  *   BZ  — Aztec (pre-sets orientation for next barcode)
  *
  * Design note: module width and height are stored in RenderContext (ctx.barcodeModule,
@@ -61,6 +64,9 @@ class BarcodeHandler : CommandHandler {
             cmd.startsWith("BE") -> drawEAN13(cmd, it, g, ctx)
             cmd.startsWith("BU") -> drawUPCA(cmd, it, g, ctx)
             cmd.startsWith("BX") -> drawDataMatrix(cmd, it, g, ctx)
+            cmd.startsWith("BA") -> drawCode39(cmd, it, g, ctx)
+            cmd.startsWith("B2") -> drawInterleaved2of5(cmd, it, g, ctx)
+            cmd.startsWith("B7") -> drawPDF417(cmd, it, g, ctx)
             // ^BZo — Aztec pre-sets orientation; full Aztec rendering not yet supported
             cmd.startsWith("BZ") -> {
                 val orient = cmd.drop(2).firstOrNull() ?: 'N'
@@ -115,17 +121,29 @@ class BarcodeHandler : CommandHandler {
         }
     }
 
-    // ─── QR Code  ^BQo,m,e,n,d ───────────────────────────────────────────────
+    // ─── QR Code  ^BQo,m,e ────────────────────────────────────────────────────
     private fun drawQr(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
-        val data = fetchFD(it, ctx)
-        if (data.isBlank()) return
+        val raw = fetchFD(it, ctx)
+        if (raw.isBlank()) return
 
-        // ^BQo,m,e — index 0=orientation, 1=model, 2=magnification (dots per QR module cell)
-        val magnification = cmd.drop(2).split(',').getOrNull(2)?.toIntOrNull() ?: 6
-        // QR version 4 = 33×33 modules; total size = magnification × module_count
-        val size = magnification * 33
-        val cacheKey = "QR:$data:$size:$rotation"
-        val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.qr(data, size) }
+        // ZPL ^BQ ^FD format: "{EC}A,{actual_data}" — e.g. "QA,12345"
+        // EC: H=High, Q=Quartile, M=Medium, L=Low
+        val (ec, data) = if (raw.length > 2 && raw[0] in "HQML" && raw[1] == 'A' && raw[2] == ',') {
+            val ecLevel = when (raw[0]) {
+                'H' -> ErrorCorrectionLevel.H
+                'Q' -> ErrorCorrectionLevel.Q
+                'L' -> ErrorCorrectionLevel.L
+                else -> ErrorCorrectionLevel.M
+            }
+            ecLevel to raw.drop(3)
+        } else {
+            ErrorCorrectionLevel.M to raw
+        }
+
+        // ^BQo,m,e — index 0=orientation, 1=model, 2=magnification (dots per QR module)
+        val magnification = cmd.drop(2).split(',').getOrNull(2)?.toIntOrNull()?.coerceAtLeast(1) ?: 6
+        val cacheKey = "QR:$data:$magnification:${ec.name}:$rotation"
+        val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.qr(data, magnification, ec) }
         drawBarcodeWithRotation(barcode, g, ctx)
     }
 
@@ -173,6 +191,39 @@ class BarcodeHandler : CommandHandler {
         val size = (cmd.drop(2).split(',').getOrNull(1)?.toIntOrNull() ?: 10) * ctx.barcodeModule
         val cacheKey = "DATAMATRIX:$data:$size:$rotation"
         val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.dataMatrix(data, size) }
+        drawBarcodeWithRotation(barcode, g, ctx)
+    }
+
+    // ─── Code 39  ^BAo,h,f,g,e ───────────────────────────────────────────────
+    private fun drawCode39(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
+        val data = fetchFD(it, ctx)
+        if (data.isBlank()) return
+        val h = ctx.barcodeHeight
+        val w = data.length * 16 * ctx.barcodeModule
+        val cacheKey = "CODE39:$data:$w:$h:$rotation"
+        val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.code39(data, w, h) }
+        drawBarcodeWithRotation(barcode, g, ctx)
+    }
+
+    // ─── Interleaved 2 of 5  ^B2o,h,f,g ─────────────────────────────────────
+    private fun drawInterleaved2of5(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
+        val data = fetchFD(it, ctx)
+        if (data.isBlank()) return
+        val h = ctx.barcodeHeight
+        val w = data.length * 9 * ctx.barcodeModule
+        val cacheKey = "ITF:$data:$w:$h:$rotation"
+        val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.interleaved2of5(data, w, h) }
+        drawBarcodeWithRotation(barcode, g, ctx)
+    }
+
+    // ─── PDF417  ^B7o,h,s,c,r,t ──────────────────────────────────────────────
+    private fun drawPDF417(cmd: String, it: ListIterator<String>, g: Graphics2D, ctx: RenderContext) {
+        val data = fetchFD(it, ctx)
+        if (data.isBlank()) return
+        val h = ctx.barcodeHeight
+        val w = data.length * 5 * ctx.barcodeModule
+        val cacheKey = "PDF417:$data:$w:$h:$rotation"
+        val barcode = cachedOrGenerate(cacheKey) { BarcodeUtil.pdf417(data, w, h) }
         drawBarcodeWithRotation(barcode, g, ctx)
     }
 

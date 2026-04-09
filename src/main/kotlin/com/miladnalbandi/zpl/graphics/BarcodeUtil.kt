@@ -4,6 +4,7 @@ import com.google.zxing.BarcodeFormat
 import com.google.zxing.EncodeHintType
 import com.google.zxing.MultiFormatWriter
 import com.google.zxing.common.BitMatrix
+import com.google.zxing.qrcode.QRCodeWriter
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel
 import java.awt.image.BufferedImage
 import java.util.*
@@ -32,14 +33,46 @@ object BarcodeUtil {
      * @param size The size of the QR code (width and height)
      * @return The generated QR code image
      */
-    fun qr(data: String, size: Int): BufferedImage {
+    /**
+     * Generates a QR code at exactly [magnification] dots per module.
+     * Uses [QRCodeWriter] to get the raw module matrix, then scales each module
+     * to [magnification] pixels — avoids hardcoding a QR version.
+     */
+    fun qr(data: String, magnification: Int,
+           errorCorrection: ErrorCorrectionLevel = ErrorCorrectionLevel.M): BufferedImage {
         val hints = EnumMap<EncodeHintType, Any>(EncodeHintType::class.java).apply {
             this[EncodeHintType.MARGIN] = 0
-            this[EncodeHintType.ERROR_CORRECTION] = ErrorCorrectionLevel.M
-            this[EncodeHintType.QR_VERSION] = 4
+            this[EncodeHintType.ERROR_CORRECTION] = errorCorrection
         }
-        return encode(BarcodeFormat.QR_CODE, data, size, size, hints)
+        // Encode at 1×1 so ZXing returns 1-pixel-per-module; scale is 1 when MARGIN=0
+        val matrix = QRCodeWriter().encode(data, BarcodeFormat.QR_CODE, 1, 1, hints)
+        val size = matrix.width * magnification
+        val img = BufferedImage(size, size, BufferedImage.TYPE_BYTE_BINARY)
+        val raster = img.raster
+        for (y in 0 until size) {
+            for (x in 0 until size) {
+                raster.setSample(x, y, 0, if (matrix[x / magnification, y / magnification]) 0 else 1)
+            }
+        }
+        return img
     }
+
+    fun code39(data: String, w: Int, h: Int): BufferedImage =
+        encode(BarcodeFormat.CODE_39, data, w, h)
+
+    fun interleaved2of5(data: String, w: Int, h: Int): BufferedImage {
+        val cleanData = data.filter { it.isDigit() }
+        val padded = if (cleanData.length % 2 != 0) "0$cleanData" else cleanData
+        return try {
+            encode(BarcodeFormat.ITF, padded, w, h)
+        } catch (e: Exception) {
+            encode(BarcodeFormat.CODE_128, data, w, h)
+        }
+    }
+
+    fun pdf417(data: String, w: Int, h: Int): BufferedImage =
+        try { encode(BarcodeFormat.PDF_417, data, w, h) }
+        catch (e: Exception) { encode(BarcodeFormat.CODE_128, data, w, h) }
 
     /**
      * Generates an EAN-8 barcode
